@@ -1,0 +1,61 @@
+version: '3'
+
+services:
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.0
+    container_name: zookeeper
+    ports:
+      - "2181:2181"
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+
+  risingwave:
+    image: risingwavelabs/risingwave:latest
+    container_name: risingwave
+    ports:
+      - "4566:4566" # RisingWave SQL 接口端口
+      - "5691:5691" # RisingWave Meta 服务端口
+    command: ["single_node"] # 单节点启动模式
+    
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: kafka
+    ports:
+      - "9092:9092"
+      - "9093:9093"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,PLAINTEXT_HOST://0.0.0.0:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:9093
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    depends_on:
+      - zookeeper
+    command:
+      - /bin/bash
+      - -c
+      - |
+        # Wait for Zookeeper to fully start
+        while ! nc -z zookeeper 2181; do sleep 1; done;
+        # Start Kafka server
+        /etc/confluent/docker/run &
+        # Wait for Kafka to fully start
+        sleep 10;
+        # Create the topic after Kafka is running
+        kafka-topics --create --topic event-topic --bootstrap-server kafka:9092 --partitions 1 --replication-factor 1;
+        # Keep the container running
+        tail -f /dev/null
+
+  kafdrop:
+    image: obsidiandynamics/kafdrop
+    container_name: kafdrop
+    ports:
+      - "9000:9000"
+    environment:
+      KAFKA_BROKERCONNECT: kafka:9092
+      JVM_OPTS: "-Xms32M -Xmx64M"
+    depends_on:
+      - kafka
