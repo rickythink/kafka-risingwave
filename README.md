@@ -8,6 +8,8 @@ sudo apt update && sudo apt install postgresql-client
 
 ## 创建 kafka topic 关联
 
+psql -h localhost -p 4566 -d dev -U root
+
 ```
 -- 创建 Kafka 连接
 CREATE SOURCE IF NOT EXISTS event_source (

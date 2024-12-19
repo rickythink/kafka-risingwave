@@ -17,6 +17,8 @@ services:
       - "4566:4566" # RisingWave SQL 接口端口
       - "5691:5691" # RisingWave Meta 服务端口
     command: ["single_node"] # 单节点启动模式
+    depends_on:
+      - kafka
     
   kafka:
     image: confluentinc/cp-kafka:7.5.0
